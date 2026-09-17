@@ -1,13 +1,5 @@
 # AI for Everyday Work — Completed Exercises
 
-## Submission note
-
-I worked through these exercises using the Task Manager projects and the other Java/JavaScript exercises in this repository. I have written the reflections in my own voice rather than copying the exercise wording. Where I describe an AI prompt, I have paraphrased it into the kind of question I would naturally type while working on the problem.
-
-I mainly used Java and JavaScript because those are the languages I have been working with in this repository. The Task Manager Java project is organised around `TaskManager`, `Task`, `TaskPriority`, `TaskStatus`, and `TaskStorage`. The JavaScript version also contains separate modules for task priority scoring, text parsing, and merging task lists. Those structures gave me enough real code to work through the comprehension and algorithm exercises instead of inventing an unrelated project.
-
----
-
 # 1. Knowing Where to Start — Codebase Comprehension
 
 ## Step 1 — Understanding the project structure
