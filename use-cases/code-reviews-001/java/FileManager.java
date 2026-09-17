@@ -45,8 +45,8 @@ public class FileManager {
     }
 
     public String readFile(String fileName) {
+        Path file = resolve(fileName);
         try {
-            Path file = resolve(fileName);
             if (!Files.isRegularFile(file)) {
                 recordError("File does not exist: " + fileName);
                 return null;
@@ -58,7 +58,7 @@ public class FileManager {
             }
             filesProcessed++;
             return content.toString();
-        } catch (IOException | IllegalArgumentException e) {
+        } catch (IOException e) {
             recordError("Error reading file " + fileName + ": " + e.getMessage());
             return null;
         }
