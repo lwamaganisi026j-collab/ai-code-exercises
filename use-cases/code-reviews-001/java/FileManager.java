@@ -1,263 +1,199 @@
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
-import java.util.zip.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * File management utility for handling common file operations.
+ * Paths are resolved relative to the configured base directory.
  */
 public class FileManager {
-    private String basePath;
-    private boolean createDirectories;
+    private final Path basePath;
+    private final boolean createDirectories;
     private int bufferSize = 4096;
+    private int filesProcessed;
+    private final List<String> errors = new ArrayList<>();
 
-    // Track operations for logging
-    private int filesProcessed = 0;
-    private List<String> errors = new ArrayList<>();
-
-    /**
-     * Constructor with base path
-     */
     public FileManager(String basePath) {
-        this.basePath = basePath;
-        this.createDirectories = true;
+        this(basePath, true);
     }
 
-    /**
-     * Constructor with options
-     */
     public FileManager(String basePath, boolean createDirectories) {
-        this.basePath = basePath;
+        this.basePath = Objects.requireNonNull(basePath, "basePath must not be null")
+                .toPath()
+                .toAbsolutePath()
+                .normalize();
         this.createDirectories = createDirectories;
     }
 
-    /**
-     * Save content to a file
-     */
     public boolean saveFile(String fileName, String content) {
-        File file = new File(basePath + File.separator + fileName);
-
-        // Create parent directories if they don't exist
-        if (this.createDirectories) {
-            file.getParentFile().mkdirs();
-        }
-
-        // Write to file
-        FileWriter writer = null;
+        Objects.requireNonNull(content, "content must not be null");
         try {
-            writer = new FileWriter(file);
-            writer.write(content);
+            Path file = resolve(fileName);
+            createParentDirectories(file);
+            try (BufferedWriter writer = Files.newBufferedWriter(
+                    file, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                writer.write(content);
+            }
             filesProcessed++;
             return true;
-        } catch (IOException e) {
-            errors.add("Error saving file " + fileName + ": " + e.getMessage());
-            e.printStackTrace();
+        } catch (IOException | IllegalArgumentException e) {
+            recordError("Error saving file " + fileName + ": " + e.getMessage());
             return false;
-        } finally {
-            try {
-                if (writer != null) {
-                    writer.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
-    /**
-     * Read content from a file
-     */
     public String readFile(String fileName) {
-        File file = new File(basePath + File.separator + fileName);
-        StringBuilder content = new StringBuilder();
-
-        if (!file.exists()) {
-            errors.add("File does not exist: " + fileName);
-            return null;
-        }
-
-        // Read from file
-        FileReader reader = null;
-        BufferedReader bufferedReader = null;
         try {
-            reader = new FileReader(file);
-            bufferedReader = new BufferedReader(reader);
-
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                content.append(line).append("\n");
+            Path file = resolve(fileName);
+            if (!Files.isRegularFile(file)) {
+                recordError("File does not exist: " + fileName);
+                return null;
             }
-
+            StringBuilder content = new StringBuilder();
+            try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line).append(System.lineSeparator());
+                }
+            }
             filesProcessed++;
             return content.toString();
-        } catch (IOException e) {
-            errors.add("Error reading file " + fileName + ": " + e.getMessage());
-            e.printStackTrace();
+        } catch (IOException | IllegalArgumentException e) {
+            recordError("Error reading file " + fileName + ": " + e.getMessage());
             return null;
-        } finally {
-            try {
-                if (bufferedReader != null) {
-                    bufferedReader.close();
-                }
-                if (reader != null) {
-                    reader.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
-    /**
-     * Delete a file
-     */
     public boolean deleteFile(String fileName) {
-        File file = new File(basePath + File.separator + fileName);
-
-        if (!file.exists()) {
-            errors.add("Cannot delete - file does not exist: " + fileName);
+        try {
+            Path file = resolve(fileName);
+            if (!Files.isRegularFile(file)) {
+                recordError("Cannot delete - file does not exist: " + fileName);
+                return false;
+            }
+            boolean deleted = Files.deleteIfExists(file);
+            if (deleted) {
+                filesProcessed++;
+            }
+            return deleted;
+        } catch (IOException | IllegalArgumentException e) {
+            recordError("Error deleting file " + fileName + ": " + e.getMessage());
             return false;
         }
-
-        boolean result = file.delete();
-        if (result) {
-            filesProcessed++;
-        } else {
-            errors.add("Failed to delete file: " + fileName);
-        }
-
-        return result;
     }
 
-    /**
-     * Copy a file
-     */
     public boolean copyFile(String sourceFileName, String destFileName) {
-        File sourceFile = new File(basePath + File.separator + sourceFileName);
-        File destFile = new File(basePath + File.separator + destFileName);
-
-        if (!sourceFile.exists()) {
-            errors.add("Source file does not exist: " + sourceFileName);
-            return false;
-        }
-
-        // Create parent directories for destination if they don't exist
-        if (this.createDirectories) {
-            destFile.getParentFile().mkdirs();
-        }
-
-        FileInputStream input = null;
-        FileOutputStream output = null;
         try {
-            input = new FileInputStream(sourceFile);
-            output = new FileOutputStream(destFile);
-
-            byte[] buffer = new byte[bufferSize];
-            int length;
-            while ((length = input.read(buffer)) > 0) {
-                output.write(buffer, 0, length);
+            Path source = resolve(sourceFileName);
+            Path destination = resolve(destFileName);
+            if (!Files.isRegularFile(source)) {
+                recordError("Source file does not exist: " + sourceFileName);
+                return false;
             }
-
+            createParentDirectories(destination);
+            Files.copy(source, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             filesProcessed++;
             return true;
-        } catch (IOException e) {
-            errors.add("Error copying file from " + sourceFileName + " to " + destFileName + ": " + e.getMessage());
-            e.printStackTrace();
+        } catch (IOException | IllegalArgumentException e) {
+            recordError("Error copying file from " + sourceFileName + " to " + destFileName + ": " + e.getMessage());
             return false;
-        } finally {
-            try {
-                if (input != null) {
-                    input.close();
-                }
-                if (output != null) {
-                    output.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
-    /**
-     * Create a ZIP archive of files
-     */
     public boolean createZipArchive(String zipFileName, List<String> filesToInclude) {
+        Objects.requireNonNull(filesToInclude, "filesToInclude must not be null");
         try {
-            FileOutputStream fos = new FileOutputStream(basePath + File.separator + zipFileName);
-            ZipOutputStream zos = new ZipOutputStream(fos);
-
-            byte[] buffer = new byte[bufferSize];
-
-            for (String fileName : filesToInclude) {
-                File file = new File(basePath + File.separator + fileName);
-
-                if (!file.exists()) {
-                    errors.add("File does not exist, skipping: " + fileName);
-                    continue;
+            Path archive = resolve(zipFileName);
+            createParentDirectories(archive);
+            try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(
+                    archive, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE))) {
+                byte[] buffer = new byte[bufferSize];
+                for (String fileName : filesToInclude) {
+                    Path file = resolve(fileName);
+                    if (!Files.isRegularFile(file)) {
+                        recordError("File does not exist, skipping: " + fileName);
+                        continue;
+                    }
+                    zos.putNextEntry(new ZipEntry(fileName.replace('\\', '/')));
+                    try (var input = Files.newInputStream(file)) {
+                        int length;
+                        while ((length = input.read(buffer)) != -1) {
+                            zos.write(buffer, 0, length);
+                        }
+                    } finally {
+                        zos.closeEntry();
+                    }
                 }
-
-                FileInputStream fis = new FileInputStream(file);
-                zos.putNextEntry(new ZipEntry(fileName));
-
-                int length;
-                while ((length = fis.read(buffer)) > 0) {
-                    zos.write(buffer, 0, length);
-                }
-
-                zos.closeEntry();
-                fis.close();
             }
-
-            zos.close();
             filesProcessed++;
             return true;
-        } catch (IOException e) {
-            errors.add("Error creating ZIP archive " + zipFileName + ": " + e.getMessage());
-            e.printStackTrace();
+        } catch (IOException | IllegalArgumentException e) {
+            recordError("Error creating ZIP archive " + zipFileName + ": " + e.getMessage());
             return false;
         }
     }
 
-    /**
-     * List files in directory
-     */
     public List<String> listFiles(String directoryPath) {
-        File directory = new File(basePath + File.separator + directoryPath);
-        List<String> fileList = new ArrayList<>();
-
-        if (!directory.exists() || !directory.isDirectory()) {
-            errors.add("Directory does not exist: " + directoryPath);
-            return fileList;
-        }
-
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                fileList.add(file.getName());
+        try {
+            Path directory = resolve(directoryPath);
+            if (!Files.isDirectory(directory)) {
+                recordError("Directory does not exist: " + directoryPath);
+                return List.of();
             }
+            try (var stream = Files.list(directory)) {
+                return stream.filter(Files::isRegularFile)
+                        .map(path -> path.getFileName().toString())
+                        .sorted()
+                        .toList();
+            }
+        } catch (IOException | IllegalArgumentException e) {
+            recordError("Error listing directory " + directoryPath + ": " + e.getMessage());
+            return List.of();
         }
-
-        return fileList;
     }
 
-    /**
-     * Get the number of files processed
-     */
     public int getFilesProcessed() {
         return filesProcessed;
     }
 
-    /**
-     * Get list of errors
-     */
     public List<String> getErrors() {
-        return new ArrayList<>(errors);
+        return List.copyOf(errors);
     }
 
-    /**
-     * Set buffer size for file operations
-     */
     public void setBufferSize(int bufferSize) {
+        if (bufferSize <= 0) {
+            throw new IllegalArgumentException("bufferSize must be greater than zero");
+        }
         this.bufferSize = bufferSize;
+    }
+
+    private Path resolve(String fileName) {
+        Objects.requireNonNull(fileName, "fileName must not be null");
+        Path resolved = basePath.resolve(fileName).normalize();
+        if (!resolved.startsWith(basePath)) {
+            throw new IllegalArgumentException("Path escapes the configured base directory");
+        }
+        return resolved;
+    }
+
+    private void createParentDirectories(Path path) throws IOException {
+        if (createDirectories && path.getParent() != null) {
+            Files.createDirectories(path.getParent());
+        }
+    }
+
+    private void recordError(String message) {
+        errors.add(message);
     }
 }
