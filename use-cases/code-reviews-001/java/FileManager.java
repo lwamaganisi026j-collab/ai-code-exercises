@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,10 +12,6 @@ import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * File management utility for handling common file operations.
- * Paths are resolved relative to the configured base directory.
- */
 public class FileManager {
     private final Path basePath;
     private final boolean createDirectories;
@@ -22,15 +19,11 @@ public class FileManager {
     private int filesProcessed;
     private final List<String> errors = new ArrayList<>();
 
-    public FileManager(String basePath) {
-        this(basePath, true);
-    }
+    public FileManager(String basePath) { this(basePath, true); }
 
     public FileManager(String basePath, boolean createDirectories) {
-        this.basePath = Objects.requireNonNull(basePath, "basePath must not be null")
-                .toPath()
-                .toAbsolutePath()
-                .normalize();
+        this.basePath = Paths.get(Objects.requireNonNull(basePath, "basePath must not be null"))
+                .toAbsolutePath().normalize();
         this.createDirectories = createDirectories;
     }
 
@@ -39,9 +32,8 @@ public class FileManager {
         try {
             Path file = resolve(fileName);
             createParentDirectories(file);
-            try (BufferedWriter writer = Files.newBufferedWriter(
-                    file, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            try (BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
                 writer.write(content);
             }
             filesProcessed++;
@@ -62,9 +54,7 @@ public class FileManager {
             StringBuilder content = new StringBuilder();
             try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    content.append(line).append(System.lineSeparator());
-                }
+                while ((line = reader.readLine()) != null) content.append(line).append(System.lineSeparator());
             }
             filesProcessed++;
             return content.toString();
@@ -82,9 +72,7 @@ public class FileManager {
                 return false;
             }
             boolean deleted = Files.deleteIfExists(file);
-            if (deleted) {
-                filesProcessed++;
-            }
+            if (deleted) filesProcessed++;
             return deleted;
         } catch (IOException | IllegalArgumentException e) {
             recordError("Error deleting file " + fileName + ": " + e.getMessage());
@@ -115,9 +103,8 @@ public class FileManager {
         try {
             Path archive = resolve(zipFileName);
             createParentDirectories(archive);
-            try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(
-                    archive, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.WRITE))) {
+            try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(archive,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))) {
                 byte[] buffer = new byte[bufferSize];
                 for (String fileName : filesToInclude) {
                     Path file = resolve(fileName);
@@ -128,9 +115,7 @@ public class FileManager {
                     zos.putNextEntry(new ZipEntry(fileName.replace('\\', '/')));
                     try (var input = Files.newInputStream(file)) {
                         int length;
-                        while ((length = input.read(buffer)) != -1) {
-                            zos.write(buffer, 0, length);
-                        }
+                        while ((length = input.read(buffer)) != -1) zos.write(buffer, 0, length);
                     } finally {
                         zos.closeEntry();
                     }
@@ -152,10 +137,7 @@ public class FileManager {
                 return List.of();
             }
             try (var stream = Files.list(directory)) {
-                return stream.filter(Files::isRegularFile)
-                        .map(path -> path.getFileName().toString())
-                        .sorted()
-                        .toList();
+                return stream.filter(Files::isRegularFile).map(path -> path.getFileName().toString()).sorted().toList();
             }
         } catch (IOException | IllegalArgumentException e) {
             recordError("Error listing directory " + directoryPath + ": " + e.getMessage());
@@ -163,37 +145,24 @@ public class FileManager {
         }
     }
 
-    public int getFilesProcessed() {
-        return filesProcessed;
-    }
-
-    public List<String> getErrors() {
-        return List.copyOf(errors);
-    }
+    public int getFilesProcessed() { return filesProcessed; }
+    public List<String> getErrors() { return List.copyOf(errors); }
 
     public void setBufferSize(int bufferSize) {
-        if (bufferSize <= 0) {
-            throw new IllegalArgumentException("bufferSize must be greater than zero");
-        }
+        if (bufferSize <= 0) throw new IllegalArgumentException("bufferSize must be greater than zero");
         this.bufferSize = bufferSize;
     }
 
     private Path resolve(String fileName) {
         Objects.requireNonNull(fileName, "fileName must not be null");
         Path resolved = basePath.resolve(fileName).normalize();
-        if (!resolved.startsWith(basePath)) {
-            throw new IllegalArgumentException("Path escapes the configured base directory");
-        }
+        if (!resolved.startsWith(basePath)) throw new IllegalArgumentException("Path escapes the configured base directory");
         return resolved;
     }
 
     private void createParentDirectories(Path path) throws IOException {
-        if (createDirectories && path.getParent() != null) {
-            Files.createDirectories(path.getParent());
-        }
+        if (createDirectories && path.getParent() != null) Files.createDirectories(path.getParent());
     }
 
-    private void recordError(String message) {
-        errors.add(message);
-    }
+    private void recordError(String message) { errors.add(message); }
 }
