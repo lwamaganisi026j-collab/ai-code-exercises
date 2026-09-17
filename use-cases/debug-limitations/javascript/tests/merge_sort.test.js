@@ -1,45 +1,51 @@
-// Test suite for merge_sort.js using Jest
-const fs = require('fs');
 const { mergeSort } = require('../merge_sort');
 
-
-describe('Merge Sort Tests', () => {
-  // Test 1: Empty array
-  test('Empty array should return empty array', () => {
+describe('mergeSort', () => {
+  test('returns an empty array for empty input', () => {
     expect(mergeSort([])).toEqual([]);
   });
-  
-  // Test 2: Single element array
-  test('Single element array should return same array', () => {
-    expect(mergeSort([5])).toEqual([5]);
+
+  test('returns a copy for a single-element array', () => {
+    const input = [5];
+    const result = mergeSort(input);
+
+    expect(result).toEqual([5]);
+    expect(result).not.toBe(input);
   });
-  
-  // Test 3: Already sorted array
-  test('Already sorted array should return same array', () => {
+
+  test('sorts an already sorted array', () => {
     expect(mergeSort([1, 2, 3, 4, 5])).toEqual([1, 2, 3, 4, 5]);
   });
-  
-  // Test 4: Reverse sorted array
-  test('Reverse sorted array should return sorted array', () => {
+
+  test('sorts a reverse-sorted array', () => {
     expect(mergeSort([5, 4, 3, 2, 1])).toEqual([1, 2, 3, 4, 5]);
   });
-  
-  // Test 5: Array with duplicates
-  test('Array with duplicates should return sorted array', () => {
+
+  test('sorts arrays containing duplicate values', () => {
     expect(mergeSort([3, 1, 4, 1, 5, 9, 2, 6])).toEqual([1, 1, 2, 3, 4, 5, 6, 9]);
   });
-  
-  // Test 6: Large array - this will likely time out due to the bug
-  test('Large array should be sorted correctly', () => {
-    jest.setTimeout(5000); // 5 second timeout
-    
-    try {
-      const largeArray = Array.from({length: 100}, () => Math.floor(Math.random() * 1000));
-      const sortedArray = [...largeArray].sort((a, b) => a - b);
-      expect(mergeSort(largeArray)).toEqual(sortedArray);
-    } catch (error) {
-      // This test is expected to fail or timeout due to the bug
-      throw error;
-    }
+
+  test('sorts negative, zero and positive numbers', () => {
+    expect(mergeSort([0, -3, 8, -1, 4, -7])).toEqual([-7, -3, -1, 0, 4, 8]);
+  });
+
+  test('sorts a large array consistently', () => {
+    const input = Array.from({ length: 1000 }, (_, index) => (index * 37) % 1000 - 500);
+    const expected = [...input].sort((a, b) => a - b);
+
+    expect(mergeSort(input)).toEqual(expected);
+  });
+
+  test('does not mutate the input array', () => {
+    const input = [4, 2, 7, 1, 3];
+    const original = [...input];
+
+    mergeSort(input);
+
+    expect(input).toEqual(original);
+  });
+
+  test('rejects non-array input', () => {
+    expect(() => mergeSort('not an array')).toThrow(TypeError);
   });
 });
