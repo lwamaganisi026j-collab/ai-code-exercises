@@ -8,7 +8,7 @@ public class FileManagerSmokeTest {
         FileManager manager = new FileManager(temp.toString());
 
         check(manager.saveFile("nested/input.txt", "hello"), "save failed");
-        check("hello" + System.lineSeparator().equals(manager.readFile("nested/input.txt")), "read failed");
+        check(("hello" + System.lineSeparator()).equals(manager.readFile("nested/input.txt")), "read failed");
         check(manager.copyFile("nested/input.txt", "copy.txt"), "copy failed");
         check(manager.createZipArchive("archive.zip", List.of("nested/input.txt", "copy.txt")), "zip failed");
         check(Files.exists(temp.resolve("archive.zip")), "archive missing");
