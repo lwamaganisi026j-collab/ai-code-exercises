@@ -1,6 +1,9 @@
-// Buggy sorting function
 function mergeSort(arr) {
-    if (arr.length <= 1) return arr;
+    if (!Array.isArray(arr)) {
+        throw new TypeError('mergeSort expects an array');
+    }
+
+    if (arr.length <= 1) return [...arr];
 
     const mid = Math.floor(arr.length / 2);
     const left = mergeSort(arr.slice(0, mid));
@@ -10,12 +13,12 @@ function mergeSort(arr) {
 }
 
 function merge(left, right) {
-    let result = [];
+    const result = [];
     let i = 0;
     let j = 0;
 
     while (i < left.length && j < right.length) {
-        if (left[i] < right[j]) {
+        if (left[i] <= right[j]) {
             result.push(left[i]);
             i++;
         } else {
@@ -24,10 +27,10 @@ function merge(left, right) {
         }
     }
 
-    // Bug: Only one of these loops will execute
+    // Append whichever half still has elements.
     while (i < left.length) {
         result.push(left[i]);
-        j++; // Bug: incrementing j instead of i
+        i++;
     }
 
     while (j < right.length) {
@@ -38,5 +41,4 @@ function merge(left, right) {
     return result;
 }
 
-// Export functions for testing
 module.exports = { mergeSort };
