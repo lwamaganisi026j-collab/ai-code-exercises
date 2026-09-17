@@ -1,0 +1,41 @@
+name: Java Gradle Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test Java project
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: use-cases/code-algorithms/java/TaskManager
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Run Gradle tests
+        run: ./gradlew test
+
+      - name: Build project
+        run: ./gradlew build
