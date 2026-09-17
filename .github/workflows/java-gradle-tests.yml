@@ -51,10 +51,18 @@ jobs:
         include:
           - project: use-cases/code-reviews-001/java
             smoke_class: FileManagerSmokeTest
+            compile_command: >-
+              javac -d out FileManager.java FileManagerSmokeTest.java
           - project: use-cases/refactor-patterns/java/src
             smoke_class: WeatherStationSmokeTest
+            compile_command: >-
+              find . -name '*.java' ! -name 'WeatherStationTest.java' -print0 |
+              xargs -0 javac -d out
           - project: use-cases/task-manager/java
             smoke_class: ''
+            compile_command: >-
+              find . -name '*.java' -print0 |
+              xargs -0 javac -cp 'lib/*' -d out
     defaults:
       run:
         working-directory: ${{ matrix.project }}
@@ -66,12 +74,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Prepare external dependencies
+        if: matrix.project == 'use-cases/task-manager/java'
+        run: |
+          set -euo pipefail
+          mkdir -p lib
+          curl -fsSL -o lib/gson.jar https://repo1.maven.org/maven2/com/google/code/gson/gson/2.13.1/gson-2.13.1.jar
+          curl -fsSL -o lib/commons-cli.jar https://repo1.maven.org/maven2/commons-cli/commons-cli/1.10.0/commons-cli-1.10.0.jar
       - name: Compile Java sources
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out
-          find . -name '*.java' ! -name 'WeatherStationTest.java' -print0 | xargs -0 javac -d out
+          ${{ matrix.compile_command }}
       - name: Run smoke test or compile assertion
         shell: bash
         env:
