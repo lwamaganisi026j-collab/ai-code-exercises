@@ -1,0 +1,37 @@
+name: JavaScript Debug Limitations
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  merge-sort:
+    name: Jest tests - debug-limitations/merge-sort
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: use-cases/debug-limitations/javascript
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: use-cases/debug-limitations/javascript/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --runInBand
+
+      - name: Run implementation
+        run: node -e "const { mergeSort } = require('./merge_sort'); const input = [5, 1, 4, 2, 3]; const expected = [1, 2, 3, 4, 5]; if (JSON.stringify(mergeSort(input)) !== JSON.stringify(expected)) process.exit(1);"
