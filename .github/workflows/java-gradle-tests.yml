@@ -1,4 +1,4 @@
-name: Java Gradle Tests
+name: Java Exercise Verification
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   gradle-tests:
-    name: Gradle tests - ${{ matrix.project }}
+    name: Gradle test/build - ${{ matrix.project }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -41,3 +41,43 @@ jobs:
         run: ./gradlew test
       - name: Build
         run: ./gradlew build
+
+  standalone-java:
+    name: Java compile/smoke test - ${{ matrix.project }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: use-cases/code-reviews-001/java
+            test_command: java FileManagerSmokeTest
+          - project: use-cases/refactor-patterns/java/src
+            test_command: java WeatherStationSmokeTest
+          - project: use-cases/task-manager/java
+            test_command: java -version
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile Java sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          find . -name '*.java' ! -name 'WeatherStationTest.java' -print0 | xargs -0 javac -d out
+      - name: Run smoke/compile verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.project }}" = "use-cases/task-manager/java" ]; then
+            test -n "$(find out -name '*.class' -print -quit)"
+          else
+            ${{ matrix.test_command }} -cp out
+          fi
