@@ -3,29 +3,20 @@ package com.example.store;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ShoppingCart {
-    private List<Product> items;
-
-    public ShoppingCart() {
-        items = new ArrayList<>();
-    }
+    private final List<Product> items = new ArrayList<>();
 
     public void addItem(Product product) {
-        items.add(product);
+        items.add(Objects.requireNonNull(product, "product must not be null"));
     }
 
     public double calculateTotal() {
-        double total = 0;
-        for (Product product : items) {
-            // Error occurs when a null product is in the list
-            total += product.getPrice();
-        }
-        return total;
+        return items.stream().mapToDouble(Product::getPrice).sum();
     }
 
     public void checkout() {
         System.out.println("Total price: $" + calculateTotal());
-        // Process payment etc.
     }
 }
